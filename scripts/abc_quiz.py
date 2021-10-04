@@ -1,45 +1,54 @@
 
-letters = 'а а а в д е е е ж и к к к л л м м о о о п р р р с с т т т ч ш я я'
+#required letters
+letters = 'ч ч ч ч ч а а а а с с т т т т т ь е е е е'
 
-def check_words(words_to_check, chars):
-    words_letters = []
+#chars list to dictionary
+def chars_to_dict(cs):
+    c_dict = {}
+    for c in cs:
+        if c not in c_dict:
+            c_dict[c] = 0
+        c_dict[c] += 1
+    return c_dict
 
+#check 5 words
+def check_words(words_to_check, chars_dict):
+    letters_dict = {}
     for word in words_to_check:
         for char in word:
-            words_letters.append(char)
+            if char not in letters_dict:
+               letters_dict[char] = 0
+            letters_dict[char] += 1
 
-    #check len
-    if len(chars) != len(words_letters):
-        return False
+    return True if letters_dict == chars_dict else False
 
-    words_letters.sort()
-
-    for i in range(0, len(chars)):
-        if chars[i] != words_letters[i]:
-            return False
-
-    return True
-
-
+#check every 5 words from filtered
 def do_magic(words, chars):
-    prog = 0
+    chars_dict = chars_to_dict(chars)
+ 
+    solution = []
+    solved = False
+
     for i0 in range(0, len(words)-4):
         for i1 in range(i0+1, len(words)-3):
             for i2 in range(i1+1, len(words)-2):
                 for i3 in range(i2+1, len(words)-1):
                     for i4 in range(i3+1, len(words)):
                         words_to_check = [words[i0], words[i1], words[i2], words[i3], words[i4]]
-                        if check_words(words_to_check, chars):
-                            return words_to_check, True
-    return [], False
+                        if check_words(words_to_check, chars_dict):
+                            solution.append(words_to_check)
+                            solved = True
+    return solution, solved 
 
-
+#filter words whether they contain required letters or not
 def filter_words(all_words, chars):
     words = []
+    chars_set = set(chars)
+
     for word in all_words:
-        add = True
-        for c in chars:
-            if not c in word:
+        add = bool(word)
+        for c in word:
+            if c not in chars_set:
                 add = False
                 break
         if add:
@@ -52,12 +61,16 @@ if __name__ == '__main__':
         chars = letters.split(' ')
         chars.sort()
 
-        all_words = open('word_rus.txt').readlines()
+        all_words = open('../data/word_rus.txt','r').read().split('\n')
 
         words = filter_words(all_words, chars)
 
-        solution, ok = do_magic(all_words, chars)
+        print('filtered words')
+       	print(words)
+
+        solution, ok = do_magic(words, chars)
         if ok:
+            print('solution')
             print(solution)
         else:
             print("solution not found!")
