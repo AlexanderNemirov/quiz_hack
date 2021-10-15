@@ -1,3 +1,4 @@
+import datetime
 
 #required letters
 letters = 'ч ч ч ч ч а а а а с с т т т т т ь е е е е'
@@ -58,15 +59,12 @@ def filter_words(all_words, chars):
 
 if __name__ == '__main__':
     try:
+        start = datetime.datetime.now() 
         chars = letters.split(' ')
-        chars.sort()
 
-        all_words = open('../data/word_rus.txt','r').read().split('\n')
+        all_words = open('data/word_rus.txt','r').read().split('\n')
 
         words = filter_words(all_words, chars)
-
-        print('filtered words')
-       	print(words)
 
         solution, ok = do_magic(words, chars)
         if ok:
@@ -75,5 +73,8 @@ if __name__ == '__main__':
         else:
             print("solution not found!")
 
+        end = datetime.datetime.now() 
+        time_exec = (end - start).microseconds / 1000
+        print("program time execution: ",time_exec," ms") 
     except Exception as e:
         print(e)

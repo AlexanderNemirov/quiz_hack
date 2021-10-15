@@ -1,1 +1,8 @@
 /cmake-build-debug/
+CMakeCache.txt
+CMakeFiles/
+Makefile
+cmake_install.cmake
+quiz_hack
+.vscode/
+build/
