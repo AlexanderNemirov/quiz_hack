@@ -65,7 +65,7 @@ if __name__ == '__main__':
         all_words = open('data/word_rus.txt','r').read().split('\n')
 
         words = filter_words(all_words, chars)
-
+        print(words)
         solution, ok = do_magic(words, chars)
         if ok:
             print('solution')

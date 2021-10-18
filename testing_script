@@ -1,0 +1,13 @@
+#!/bin/bash
+
+#letters array
+declare -a letters_arr=("авгурвыжиглипомаотрывшрот"
+			"тетачасчастьчетачечет")
+
+for letters in "${letters_arr[@]}"
+do
+	echo "letters:"
+	echo "$letters"
+	echo "$letters" | ./quiz_hack
+	echo " "
+done
