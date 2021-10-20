@@ -1,42 +1,47 @@
 #include<iostream>
 #include<fstream>
+#include<sstream>
 #include<string>
 #include<vector>
-#include<unordered_set>
-#include<locale>
+#include<unordered_map>
 #include<chrono>
 #include<functional>
 
 
-bool read_file(const char* filename, std::vector<std::wstring> & all_words, const std::unordered_multiset<wchar_t> & letters);
-bool do_magic(const std::vector<std::wstring> & words, const std::unordered_multiset<wchar_t> & letters,
-	std::vector<std::array<std::reference_wrapper<const std::wstring>,5>> & solution);
+bool ReadFile(const std::string & filename, std::vector<std::wstring> & words, const std::unordered_map<wchar_t,unsigned> & letters);
+bool DoMagic(const std::vector<std::wstring> & words, const std::unordered_map<wchar_t,unsigned> & letters,
+             std::vector<std::array<std::reference_wrapper<const std::wstring>,5>> & solution, unsigned letters_count);
+void StringToUmap(const std::wstring & word_list, std::unordered_map<wchar_t,unsigned> & word_map);
 
-//no copying !!!!
-//no filter ???
-int main(){
+int main(int argc, char** args){
 	std::setlocale(LC_ALL,"ru_RU.UTF-8");
-	std::wstring letters_s;
-	std::wcin >> letters_s;
-	std::wcout << letters_s << L"\n";
-	//required letters
-	std::unordered_multiset<wchar_t> letters{letters_s.begin(), letters_s.end()};
-	//const std::unordered_multiset<wchar_t> letters {L'ч',L'ч',L'ч',L'ч',L'ч',L'а',L'а',L'а',L'а',L'с',L'с',L'т',L'т',L'т',L'т',L'т',L'ь',L'е',L'е',L'е',L'е'};
-	auto start = std::chrono::steady_clock::now();
-	//wstring -> wchar_t arrays ?
-	std::vector<std::wstring> all_words;
-	std::vector<std::reference_wrapper<const std::wstring>> filtered_words;
-	std::vector<std::array<std::reference_wrapper<const std::wstring>,5>> solutions;
 
-	//input file
-	if (!read_file("data/word_rus.txt", all_words, letters)){
+    std::string filename = "data/word_rus1000.txt";
+    if (argc > 1)
+        filename = "data/word_rus" + std::string(args[1]) + ".txt";
+
+    std::wcout << "enter required letters:\n";
+	std::wstring letters_in;
+	std::wcin >> letters_in;
+	std::unordered_map<wchar_t,unsigned> letters;
+    StringToUmap(letters_in, letters);
+    //filtered words
+    std::vector<std::wstring> words;
+    std::vector<std::array<std::reference_wrapper<const std::wstring>,5>> solutions;
+
+	if (!ReadFile(filename, words, letters)){
 		std::wcout << "input file was not found!\n";
 		return 0;
 	}
 
-	auto start1 = std::chrono::steady_clock::now();
-	if (do_magic(all_words, letters, solutions))
-		for(auto solution : solutions)
+    std::wcout << "number of filtered words:\n";
+    std::wcout << words.size() << L"\n";
+	if (words.size() < 5)
+		return 0;
+
+    auto start_magic = std::chrono::steady_clock::now();
+	if (DoMagic(words, letters, solutions, letters_in.size()))
+		for(auto & solution : solutions)
 			std::wcout << solution[0].get() << L"; "
 			<< solution[1].get() << L"; "
 			<< solution[2].get() << L"; "
@@ -44,71 +49,94 @@ int main(){
 			<< solution[4].get() << L"\n";
 	else
 		std::wcout << "solution was not found!\n";
-	auto end = std::chrono::steady_clock::now();
-	auto load_filter_time = start1 - start;
-	auto magic_time = end - start1;
-	std::wcout << "load_filter_time: " << std::chrono::duration<double, std::milli> (load_filter_time).count() << " ms\n";
+	auto end_magic = std::chrono::steady_clock::now();
+	auto magic_time = end_magic - start_magic;
 	std::wcout << "magic_time: " << std::chrono::duration<double, std::milli> (magic_time).count() << " ms\n";
 
 	return 0;
 }
 
-bool filter_word(const std::wstring & word, const std::unordered_multiset<wchar_t> & letters){
-	bool add = true;
-	for(auto word_char : word){
-		//c++ 20
-		if(!letters.contains(word_char)){
-			add = false;
-			break;
-		}
-	}
-	return add;
+void StringToUmap(const std::wstring & word_list, std::unordered_map<wchar_t,unsigned> & word_map){
+    for (auto & letter : word_list) {
+        //c++ 20
+        if (!word_map.contains(letter))
+            word_map[letter] = 0;
+        word_map[letter] += 1;
+    }
 }
 
+bool FilterWord(const std::wstring & word, const std::unordered_map<wchar_t,unsigned> & letters){
+    std::unordered_map<wchar_t,unsigned> word_map;
+    StringToUmap(word, word_map);
+	bool passed = true;
+    for (auto &[letter, num]: word_map)
+        if ((!letters.contains(letter)) || (letters.at(letter) < num)) {
+            passed = false;
+            break;
+        }
+    return passed;
+}
 
-bool read_file(const char* filename, std::vector<std::wstring> & all_words, const std::unordered_multiset<wchar_t> & letters){
+bool ReadFile(const std::string & filename, std::vector<std::wstring> & words, const std::unordered_map<wchar_t,unsigned> & letters){
+    auto start_read = std::chrono::steady_clock::now();
 	std::wifstream file_in;
+    std::wstringstream file_buffer;
 	file_in.imbue(std::locale("ru_RU.UTF-8"));
+    file_buffer.imbue(std::locale("ru_RU.UTF-8"));
 	file_in.open(filename);
-	bool file_ok = false;
-	if(file_in.is_open()){
-		all_words.reserve(20);
-		std::wstring line;
-		//buff -> vec
-		//filter_words here ???
-		//getline (?)
-		while(std::getline(file_in,line)){
-			if (filter_word(line,letters))
-				all_words.push_back(line);
-		}
-		file_in.close();
-		file_ok = true;
-	}
-	return file_ok;
+	if(!file_in.is_open())
+        return false;
+    file_buffer << file_in.rdbuf();
+    file_in.close();
+    words.reserve(300);
+    std::wstring line;
+    auto end_read = std::chrono::steady_clock::now();
+    auto read_time = end_read - start_read;
+    std::wcout << "read_time: " << std::chrono::duration<double, std::milli> (read_time).count() << " ms\n";
+    while(std::getline(file_buffer,line)){
+        if (FilterWord(line, letters))
+            words.push_back(line);
+    }
+    auto end_filter = std::chrono::steady_clock::now();
+    auto filter_time = end_filter - end_read;
+    std::wcout << "filter_time: " << std::chrono::duration<double, std::milli> (filter_time).count() << " ms\n";
+	return true;
 }
 
 //check 5 words
-bool check_words(std::array<std::reference_wrapper<const std::wstring>, 5> & words, const std::unordered_multiset<wchar_t> & letters){
-	std::unordered_multiset<wchar_t> words_set;
-	for(auto word : words)
-		for(auto word_char : word.get())
-			words_set.insert(word_char);
-	return words_set == letters;
+bool CheckWords(std::wstring & words_combined, const std::unordered_map<wchar_t,unsigned> & letters){
+    std::unordered_map<wchar_t,unsigned> words_map;
+    StringToUmap(words_combined, words_map);
+    return words_map == letters;
 }
 
+//really ugly code
 //check every 5 words from filtered
-bool do_magic(const std::vector<std::wstring> & words, const std::unordered_multiset<wchar_t> & letters,
-std::vector<std::array<std::reference_wrapper<const std::wstring>,5>> & solution){
-	for(int i0=0; i0<words.size()-4; ++i0)	
-		for(int i1=i0; i1<words.size()-3; ++i1)	
-			for(int i2=i1; i2<words.size()-2; ++i2)	
-				for(int i3=i2; i3<words.size()-1; ++i3)	
-					for(int i4=i3; i4<words.size(); ++i4){
-						//vec -> array of refs
-						std::array<std::reference_wrapper<const std::wstring>,5>
-							words_to_check{ {std::ref(words[i0]),std::ref(words[i1]),std::ref(words[i2]),std::ref(words[i3]),std::ref(words[i4])} };
-						if(check_words(words_to_check, letters))
-							solution.push_back(words_to_check);
-					}
-	return !solution.empty();
+//3rd, 4th, 5th for loops include length check
+bool DoMagic(const std::vector<std::wstring> & words, const std::unordered_map<wchar_t,unsigned> & letters,
+    std::vector<std::array<std::reference_wrapper<const std::wstring>,5>> & solution, const unsigned letters_count){
+        for (int i0=0; i0<words.size()-4; ++i0) {
+            for (int i1 = i0+1; i1 < words.size() - 3; ++i1) {
+                std::wstring words_i0i1 = words[i0] + words[i1];
+                for (int i2 = i1+1; i2 < words.size() - 2; ++i2) {
+                    std::wstring words_i0i1i2 = words_i0i1 + words[i2];
+                    if (words_i0i1i2.size() >= letters_count) continue;
+                    for (int i3 = i2+1; i3 < words.size() - 1; ++i3) {
+                        std::wstring words_i0i1i2i3 = words_i0i1i2 + words[i3];
+                        if (words_i0i1i2i3.size() >= letters_count) continue;
+                        for (int i4 = i3+1; i4 < words.size(); ++i4) {
+                            std::wstring words_to_check = words_i0i1i2i3 + words[i4];
+                            if (words_to_check.size() != letters_count) continue;
+                            if (CheckWords(words_to_check, letters)) {
+                                solution.push_back(std::array<std::reference_wrapper<const std::wstring>, 5>
+                                                           {{std::ref(words[i0]), std::ref(words[i1]),
+                                                             std::ref(words[i2]), std::ref(words[i3]),
+                                                             std::ref(words[i4])}});
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return !solution.empty();
 }

@@ -1,13 +1,41 @@
 #!/bin/bash
 
 #letters array
-declare -a letters_arr=("авгурвыжиглипомаотрывшрот"
-			"тетачасчастьчетачечет")
+declare -a letters_arr=("тетачасчастьчетачечет"
+			"уходолгнефтьдымрубль"
+			"выпускднопочватемпвода"
+			"судстолканалполетштат"
+			"мигзолотоначалостихлист"
+			"данныелесгодцифраозеро"
+			#fat tests
+			"экономикатеатрновоегорломинистр"
+			"имяродительврагшеяформула"
+			"оборотмэрмоментдухсобака"
+			#fattest test
+			"методсонрисинженеркампания")
+			#"авгурвыжиглипомаотрывшрот")
+words="1000"
+lang="cpp"
+
+while getopts 'smlp' flag; do
+  case "${flag}" in
+    s) words="1000" ;;
+    m) words="34010" ;;
+    l) words="51301" ;;
+    p) lang="python" ;;
+    *) exit 1
+  esac
+done
 
 for letters in "${letters_arr[@]}"
 do
+	echo " "
 	echo "letters:"
 	echo "$letters"
-	echo "$letters" | ./quiz_hack
+	if [[ "$lang" == "python" ]]; then
+		echo "$letters" | python scripts/abc_quiz.py "$words"
+	else
+		echo "$letters" | ./quiz_hack "$words"
+	fi
 	echo " "
 done

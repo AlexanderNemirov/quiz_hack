@@ -6,3 +6,5 @@ cmake_install.cmake
 quiz_hack
 .vscode/
 build/
+.idea/
+Testing/

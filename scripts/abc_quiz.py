@@ -1,7 +1,5 @@
 import datetime
-
-#required letters
-letters = 'ч ч ч ч ч а а а а с с т т т т т ь е е е е'
+import sys
 
 #chars list to dictionary
 def chars_to_dict(cs):
@@ -59,17 +57,28 @@ def filter_words(all_words, chars):
 
 if __name__ == '__main__':
     try:
-        start = datetime.datetime.now() 
-        chars = letters.split(' ')
+        words_count = '1000'
+        if len(sys.argv) > 1:
+             words_count = sys.argv[1]
 
-        all_words = open('data/word_rus.txt','r').read().split('\n')
+        print('enter required letters:')
+        letters_str = sys.stdin.readline()
+        chars = list(letters_str) 
+        del chars[-1]
+        start = datetime.datetime.now() 
+
+        all_words = open('data/word_rus' + words_count + '.txt','r').read().split('\n')
 
         words = filter_words(all_words, chars)
-        print(words)
-        solution, ok = do_magic(words, chars)
+
+        print('number of filtered words')
+        print(len(words))
+
+        solutions, ok = do_magic(words, chars)
         if ok:
             print('solution')
-            print(solution)
+            for solution in solutions:
+                print(solution)
         else:
             print("solution not found!")
 
