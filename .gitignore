@@ -8,3 +8,4 @@ quiz_hack
 build/
 .idea/
 Testing/
+tests/

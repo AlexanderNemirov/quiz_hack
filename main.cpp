@@ -9,12 +9,17 @@
 
 #include "word_tuple.h"
 
+typedef std::unordered_map<wchar_t,unsigned> UmapLets;
+typedef std::vector<std::array<std::reference_wrapper<const WordTuple>,5>> VecCombinations;
+typedef std::vector<std::pair<wchar_t,unsigned>> VecLets;
+typedef std::vector<WordTuple> VecWords;
 
 //functions called in main
-bool ReadFile(const std::string & filename, std::vector<WordTuple> & words, const std::unordered_map<wchar_t,unsigned> & letters);
-bool DoMagic(const std::vector<WordTuple> & words, const std::unordered_map<wchar_t,unsigned> & letters,
-             std::vector<std::array<std::reference_wrapper<const WordTuple>,5>> & solution, const unsigned letters_count);
-void StringToUmap(const std::wstring & word, std::unordered_map<wchar_t,unsigned> & word_map);
+bool ReadFile(const std::string & filename, VecWords & words, const UmapLets & letters);
+void StringToUmap(const std::wstring & word, UmapLets & word_map);
+bool GenMain(unsigned index_start, unsigned index_end, const VecWords & words,
+             const UmapLets & letters,
+             VecCombinations & solution);
 
 int main(int argc, char** args) {
     std::setlocale(LC_ALL,"ru_RU.UTF-8");
@@ -26,30 +31,31 @@ int main(int argc, char** args) {
     std::wcout << "enter required letters:\n";
     std::wstring letters_in;
     std::wcin >> letters_in;
-    std::unordered_map<wchar_t,unsigned> letters;
+    UmapLets letters;
     StringToUmap(letters_in, letters);
     //filtered words
-    std::vector<WordTuple> words;
-    std::vector<std::array<std::reference_wrapper<const WordTuple>,5>> solutions;
+    VecWords words;
+    VecCombinations solutions;
 
     if (!ReadFile(filename, words, letters)) {
         std::wcout << "input file was not found!\n";
         return 0;
     }
 
-    std::wcout << "number of filtered words:\n";
-    std::wcout << words.size() << L"\n";
+    std::wcout << "number of filtered words: " << words.size() << L"\n";
     if (words.size() < 5)
         return 0;
 
     auto start_magic = std::chrono::steady_clock::now();
-    if (DoMagic(words, letters, solutions, letters_in.size()))
-        for(auto & solution : solutions)
+    if (GenMain(0, words.size()-4, words, letters, solutions)) {
+        std::wcout << "number of solutions: " << solutions.size() << L"\n";
+        for (auto &solution: solutions)
             std::wcout << solution[0].get().get_word() << L"; "
-            << solution[1].get().get_word() << L"; "
-            << solution[2].get().get_word() << L"; "
-            << solution[3].get().get_word() << L"; "
-            << solution[4].get().get_word() << L"\n";
+                       << solution[1].get().get_word() << L"; "
+                       << solution[2].get().get_word() << L"; "
+                       << solution[3].get().get_word() << L"; "
+                       << solution[4].get().get_word() << L"\n";
+    }
     else
         std::wcout << "solution was not found!\n";
     auto end_magic = std::chrono::steady_clock::now();
@@ -59,7 +65,7 @@ int main(int argc, char** args) {
     return 0;
 }
 
-void StringToUmap(const std::wstring & word, std::unordered_map<wchar_t,unsigned> & word_map) {
+void StringToUmap(const std::wstring & word, UmapLets & word_map) {
     for (auto & letter : word) {
         //c++ 20
         if (!word_map.contains(letter))
@@ -68,7 +74,7 @@ void StringToUmap(const std::wstring & word, std::unordered_map<wchar_t,unsigned
     }
 }
 
-bool FilterWord(const std::unordered_map<wchar_t,unsigned> & word_map, const std::unordered_map<wchar_t,unsigned> & letters) {
+bool FilterWord(const UmapLets & word_map, const UmapLets & letters) {
     bool passed = true;
     for (auto &[letter, num]: word_map)
         if ((!letters.contains(letter)) || (letters.at(letter) < num)) {
@@ -78,7 +84,7 @@ bool FilterWord(const std::unordered_map<wchar_t,unsigned> & word_map, const std
     return passed;
 }
 
-bool ReadFile(const std::string & filename, std::vector<WordTuple> & words, const std::unordered_map<wchar_t,unsigned> & letters) {
+bool ReadFile(const std::string & filename, VecWords & words, const UmapLets & letters) {
     auto start_read = std::chrono::steady_clock::now();
     std::wifstream file_in;
     std::wstringstream file_buffer;
@@ -95,7 +101,7 @@ bool ReadFile(const std::string & filename, std::vector<WordTuple> & words, cons
     auto read_time = end_read - start_read;
     std::wcout << "read_time: " << std::chrono::duration<double, std::milli> (read_time).count() << " ms\n";
     while(std::getline(file_buffer, word)) {
-        std::unordered_map<wchar_t,unsigned> word_map;
+        UmapLets word_map;
         StringToUmap(word, word_map);
         if (FilterWord(word_map, letters))
             words.push_back(WordTuple{word, word_map});
@@ -106,40 +112,52 @@ bool ReadFile(const std::string & filename, std::vector<WordTuple> & words, cons
     return true;
 }
 
-//check 2:5 words umap
-bool IterationCheck(const std::unordered_map<wchar_t,unsigned> & words_map, const std::unordered_map<wchar_t,unsigned> & letters) {
-    for (auto &[letter, num] : words_map)
-        if (letters.at(letter) < num)
+//last check
+bool FinalCheck(const VecLets & words_vec, const UmapLets & letters) {
+    for (auto &[letter, num] : words_vec)
+        if (letters.at(letter) != num)
             return false;
     return true;
 }
 
-//really ugly code
-//check every 5 words from filtered
-bool DoMagic(const std::vector<WordTuple> & words, const std::unordered_map<wchar_t,unsigned> & letters,
-    std::vector<std::array<std::reference_wrapper<const WordTuple>,5>> & solution, const unsigned letters_count) {
-        for (int i0=0; i0 < words.size() - 4; ++i0) {
-            for (int i1 = i0+1; i1 < words.size() - 3; ++i1) {
-                WordTuple word_tuple_i1 = words[i0] + words[i1];
-                if (!IterationCheck(word_tuple_i1.get_dict(),letters)) continue;
-                for (int i2 = i1+1; i2 < words.size() - 2; ++i2) {
-                    WordTuple word_tuple_i2 = word_tuple_i1 + words[i2];
-                    if ((word_tuple_i2.size() >= letters_count) || (!IterationCheck(word_tuple_i2.get_dict(),letters))) continue;
-                    for (int i3 = i2+1; i3 < words.size() - 1; ++i3) {
-                        WordTuple word_tuple_i3 = word_tuple_i2 + words[i3];
-                        if ((word_tuple_i3.size() >= letters_count) || (!IterationCheck(word_tuple_i3.get_dict(),letters))) continue;
-                        for (int i4 = i3+1; i4 < words.size(); ++i4) {
-                            WordTuple word_tuple_i4 = word_tuple_i3 + words[i4];
-                            if (word_tuple_i4.get_dict() == letters) {
-                                solution.push_back(std::array<std::reference_wrapper<const WordTuple>, 5>
-                                                           {{std::ref(words[i0]), std::ref(words[i1]),
-                                                             std::ref(words[i2]), std::ref(words[i3]),
-                                                             std::ref(words[i4])}});
-                            }
-                        }
-                    }
-                }
-            }
+//check 2:4 words umap
+bool IterCheck(const VecLets & words_vec, const UmapLets & letters, const unsigned len) {
+      for (unsigned i=0; i<len; ++i)
+          if (letters.at(words_vec[i].first) < words_vec[i].second)
+              return false;
+    return true;
+}
+
+void Gen(unsigned index_start, std::vector<unsigned> & indices, const WordTuple & prev_words,
+         const VecWords & words, const UmapLets & letters, VecCombinations & solution) {
+    if (indices.size() == 5) {
+        if ((prev_words.size() == letters.size()) && (FinalCheck(prev_words.get_vec(),letters))) {
+            solution.push_back({{std::ref(words[indices[0]]),
+                                 std::ref(words[indices[1]]),
+                                 std::ref(words[indices[2]]),
+                                 std::ref(words[indices[3]]),
+                                 std::ref(words[indices[4]])}});
         }
-        return !solution.empty();
+    }
+    else
+        for (int index=index_start; index<words.size(); ++index) {
+            WordTuple next_words = prev_words + words[index];
+            if ((next_words.size() > letters.size()) || (!IterCheck(next_words.get_vec(), letters, words[index].size()))) continue;
+            indices.push_back(index);
+            Gen(index+1, indices, next_words, words, letters, solution);
+            indices.pop_back();
+        }
+    return;
+}
+
+bool GenMain(unsigned index_start, unsigned index_end, const VecWords & words,
+            const UmapLets & letters, VecCombinations & solution) {
+    std::vector<unsigned> indices;
+    indices.reserve(5);
+    for (unsigned index=index_start; index<index_end; ++index) {
+        indices.push_back(index);
+        Gen(index+1, indices, words[index], words, letters, solution);
+        indices.pop_back();
+    }
+    return !solution.empty();
 }
