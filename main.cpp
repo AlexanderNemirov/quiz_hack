@@ -6,6 +6,7 @@
 #include<unordered_map>
 #include<chrono>
 #include<functional>
+#include<thread>
 
 #include "word_tuple.h"
 
@@ -18,8 +19,7 @@ typedef std::vector<WordTuple> VecWords;
 bool ReadFile(const std::string & filename, VecWords & words, const UmapLets & letters);
 void StringToUmap(const std::wstring & word, UmapLets & word_map);
 bool GenMain(unsigned index_start, unsigned index_end, const VecWords & words,
-             const UmapLets & letters,
-             VecCombinations & solution);
+             const UmapLets & letters, VecCombinations & solution);
 
 int main(int argc, char** args) {
     std::setlocale(LC_ALL,"ru_RU.UTF-8");
@@ -35,7 +35,6 @@ int main(int argc, char** args) {
     StringToUmap(letters_in, letters);
     //filtered words
     VecWords words;
-    VecCombinations solutions;
 
     if (!ReadFile(filename, words, letters)) {
         std::wcout << "input file was not found!\n";
@@ -46,8 +45,31 @@ int main(int argc, char** args) {
     if (words.size() < 5)
         return 0;
 
+    unsigned num_thrd = 1;
+    if (words.size() > 100)
+        num_thrd = words.size() / 50;
+    std::wcout << "number of threads: " << num_thrd << L"\n";
+    unsigned rng_start = 0;
+    unsigned rng_step = (words.size() - 4)/ num_thrd;
+    std::vector<VecCombinations> solutions{num_thrd};
+    std::vector<std::thread> threads;
     auto start_magic = std::chrono::steady_clock::now();
-    if (GenMain(0, words.size()-4, words, letters, solutions)) {
+    for (auto & sol : solutions) {
+        std::thread thrd(GenMain, rng_start, rng_start+rng_step, std::ref(words), std::ref(letters), std::ref(sol));
+        threads.push_back(std::move(thrd));
+        rng_start += rng_step;
+    }
+    for (auto & thrd : threads)
+        if (thrd.joinable())
+            thrd.join();
+    unsigned num_sol = 0;
+    for (auto & sol : solutions)
+        num_sol += sol.size();
+
+        
+    std::wcout << "number of solutions: " << num_sol << L"\n";
+
+    /*if (GenMain(0, words.size()-4, words, letters, solutions)) {
         std::wcout << "number of solutions: " << solutions.size() << L"\n";
         for (auto &solution: solutions)
             std::wcout << solution[0].get().get_word() << L"; "
@@ -57,7 +79,7 @@ int main(int argc, char** args) {
                        << solution[4].get().get_word() << L"\n";
     }
     else
-        std::wcout << "solution was not found!\n";
+        std::wcout << "solution was not found!\n";*/
     auto end_magic = std::chrono::steady_clock::now();
     auto magic_time = end_magic - start_magic;
     std::wcout << "magic_time: " << std::chrono::duration<double, std::milli> (magic_time).count() << " ms\n";
@@ -158,6 +180,8 @@ bool GenMain(unsigned index_start, unsigned index_end, const VecWords & words,
         indices.push_back(index);
         Gen(index+1, indices, words[index], words, letters, solution);
         indices.pop_back();
+        //double percent = 100.0*(static_cast<double>(index)+1.0)/static_cast<double>(index_end - index_start);
+        //std::wcout << "%: " << percent << "\n";
     }
     return !solution.empty();
 }
